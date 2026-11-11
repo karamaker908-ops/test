@@ -1,0 +1,161 @@
+<!doctype html><html lang="ko"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>발주데스크</title>
+<style>
+*{box-sizing:border-box}body{margin:0;background:#f1f5f4;color:#172d2b;font:16px/1.6 system-ui,sans-serif}header{background:#103b36;color:white;padding:32px max(5vw,20px)}h1,h2,p{margin:0 0 12px}main{max-width:1000px;margin:auto;padding:24px}section{background:white;border:1px solid #d7e3df;border-radius:16px;padding:24px;margin-bottom:16px}label{display:inline-block;margin:0 12px 12px 0}select,input,button{font:inherit;padding:8px;border:1px solid #aabfb8;border-radius:7px}button{background:#126653;color:white;cursor:pointer;margin:4px}button:disabled{opacity:.5;cursor:default}small{color:#496760}table{width:100%;border-collapse:collapse}th,td{text-align:left;padding:9px;border-bottom:1px solid #e0ebe7}input[type=number]{width:85px}.scroll{overflow:auto}.badge{background:#dff4ea;border-radius:20px;padding:4px 12px}#notice{font-weight:bold;color:#8a410f}
+[data-order-items]{display:grid;gap:6px;margin:12px 0}[data-order-items] label{display:flex;justify-content:space-between;align-items:center;gap:12px;margin:0;padding:6px 10px;background:#f1f5f4;border-radius:8px}[data-order-items] label[hidden]{display:none}[data-order-items] input{flex:none}</style>
+<header><small style="color:#b3e9d8">운영 프로토타입 · 샘플 데이터</small><h1>발주데스크</h1><p>매장 주문 일정과 제출 현황을 한곳에서</p></header>
+<main><section id="login" hidden><h2>로그인</h2><form id="loginForm"><label>계정 <input name="user" required autocomplete="username"></label><label>비밀번호 <input name="password" type="password" required autocomplete="current-password"></label><button>로그인</button></form><small>계정 예시 coffee-city · coffee-forest · coffee-hq / bakery-city · bakery-forest · bakery-hq / kennya-main · kennya-hq</small></section><div id="workspace"><section><p id="identity" hidden></p><label>본사 <select id="tenant"><option>모닝빈 커피</option><option>오븐데이 베이커리</option><option>케니야</option></select></label><label>데모 역할 <select id="role"><option>매장</option><option>본사</option></select></label><label id="storeLabel">매장 <select id="store"><option>시청점</option><option>성수점</option><option>커피랩 케니야 본점</option></select></label><label>시뮬레이션 시각 <input id="now" type="datetime-local" value="2026-11-03T13:30"></label><br><small>서울 시간 기준 · 역할 전환과 알림은 데모용입니다.</small></section><section id="panel"></section><section id="logs"></section></div><p id="notice" role="status"></p></main>
+<script>
+const el=id=>document.getElementById(id);
+const plans=[
+ {name:'정기 주문',cut:'2026-11-03T14:00',ship:'11/05',items:[['에스프레소 원두 1kg','우유 1L'],['버터 크루아상 12입','소금빵 10입']]},
+ {name:'추가 주문',cut:'2026-11-04T11:00',ship:'11/06',items:[['바닐라 시럽 1L','초콜릿 소스 2kg'],['블루베리 머핀 8입','바게트 6입']]},
+ {name:'본점 판매분 발주',cut:'2026-11-05T14:00',ship:'협의',items:[[],[],[]]}
+];
+const shops=['시청점','성수점'], storage='order-desk-demo-v1';
+const esc=s=>String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const server=location.protocol!=='file:';
+let session;
+const read=()=>server?session.records:JSON.parse(localStorage.getItem(storage)||'{}');
+const key=(s,i)=>JSON.stringify([el('tenant').value,s,i,plans[i].cut]);
+const minutes=i=>(Date.parse(plans[i].cut+'+09:00')-Date.parse(el('now').value+'+09:00'))/60000;
+function status(record,i){
+ if(record)return record.status;
+ const m=minutes(i);
+ return m<=-60?'본사 에스컬레이션':m<=0?'미주문 · 매장 알림':m<=120?'마감 임박 · 매장 알림':'주문 예정';
+}
+function detail(r){return r?.items?.map(([name,q])=>name+' × '+q).join(', ')||r?.proof||'—'}
+const namesFor=(i,t)=>[...new Set([...(plans[i].items[t]||[]),...(session?.catalog||[]),...(session?.products||[]).filter(p=>p.amount!==null).map(p=>p.label)])];
+function render(){
+ const data=read(), hq=el('role').value==='본사', s=el('store').value, t=el('tenant').selectedIndex;
+ el('storeLabel').hidden=hq;
+ const rows=(hq?(session?.shops||shops):[s]).flatMap(shop=>plans.map((p,i)=>({shop,p,i,r:data[key(shop,i)]})));
+ el('panel').innerHTML=hq?'<h2>본사 통합현황</h2><div class="scroll"><table><thead><tr><th>매장</th><th>주문 회차</th><th>마감 / 배송</th><th>상태</th><th>주문 내역</th></tr></thead><tbody>'+rows.map(({shop,p,i,r})=>'<tr><td>'+shop+'</td><td>'+p.name+'</td><td>'+p.cut.replace('T',' ')+' / '+p.ship+'</td><td>'+status(r,i)+'</td><td>'+esc(detail(r))+'</td></tr>').join('')+'</tbody></table></div><h3>회차별 주문 취합</h3>'+plans.map((p,i)=>{
+ const totals=new Map();
+ for(const row of rows.filter(row=>row.i===i)) for(const [name,q] of row.r?.items||[]) totals.set(name,(totals.get(name)||0)+q);
+ return '<p><strong>'+p.name+'</strong> · '+(esc(detail({items:[...totals]}))||'—')+'</p>';
+ }).join(''):'<h2>'+s+' 주문 일정</h2>'+plans.map((p,i)=>{
+ if(i===2&&s!=='커피랩 케니야 본점')return '';
+ const r=data[key(s,i)];
+ const draft=i===2?session?.draft:null;
+ return '<form data-plan="'+i+'"><h3>'+p.name+'</h3><p>마감 '+p.cut.replace('T',' ')+' · 배송 '+p.ship+' <span class="badge">'+status(r,i)+'</span></p>'+
+ (draft&&!r?'<p>11월 4일 판매 자동 반영 · 재고 0</p><details><summary>옵션·레시피 확인 필요 '+draft.pending.length+'개</summary><ul>'+draft.pending.map(([name,count])=>'<li>'+esc(name)+' · '+count+'개</li>').join('')+'</ul></details>':'')+(r?'<p>'+esc(detail(r))+'</p>':'<p data-empty '+(draft?'hidden':'')+'>발주에 담긴 품목이 없습니다.</p><div data-order-items>'+namesFor(i,t).map((name,j)=>'<label '+(draft?.quantities[name]?'':'hidden')+'>'+esc(name)+' <input aria-label="'+esc(name)+' 수량" name="q'+j+'" type="number" min="0" max="9999" step="1" value="'+(draft?.quantities[name]||0)+'"></label>').join('')+'</div><button type="button" data-toggle-items aria-expanded="false">전체 품목 열기</button>'+
+ (server&&session.tenant==='케니야'&&!r?'<details><summary>판매 내역으로 초안 채우기 · 재고 0</summary><p>엑셀에서 상품명, 사이즈, HOT/ICE/컵, 판매수량 4열을 복사해 붙여넣으세요. 제목 행은 제외하세요.</p><textarea rows="4" aria-label="판매 내역" placeholder="아메리카노&#9;Q&#9;ICE&#9;8"></textarea><button type="button" data-draft>초안 계산</button><pre aria-live="polite" style="white-space:pre-wrap"></pre></details>':'')+
+(r?'':'<br><button value="done">본사에 주문 제출</button><button value="skip">주문 없음 확인</button>'))+'</form>';
+ }).join('');
+ if(hq&&server)el('panel').insertAdjacentHTML('afterbegin','<h2>본사 주문 품목</h2><form id="catalogForm"><label>품목명 <input name="name" required maxlength="80"></label><label>주문 단위 <input name="unit" required maxlength="40"></label><button>등록</button></form><p>'+session.catalog.map(esc).join(' · ')+'</p>');
+ if(hq&&server&&session.products.length){
+  el('panel').insertAdjacentHTML('afterbegin','<details><summary>케니야 등록 품목 '+session.products.length+'개</summary><ul>'+session.products.map(p=>'<li>'+esc(p.label)+' · '+(p.amount===null?'금액 확인 필요':p.amount.toLocaleString('ko-KR')+'원')+'</li>').join('')+'</ul></details>');
+ }
+ const history=rows.filter(row=>row.r&&(hq||row.shop===s)).sort((a,b)=>b.r.at.localeCompare(a.r.at));
+ el('logs').innerHTML='<h2>처리 이력</h2>'+(history.map(({shop,p,r})=>'<p>'+esc(r.at.replace('T',' '))+' · '+shop+' (매장) · '+p.name+' · '+r.status+'</p>').join('')||'<p>아직 처리 이력이 없습니다.</p>');
+}
+async function submit(e){
+ e.preventDefault();
+ const form=e.target, i=Number(form.dataset.plan), s=el('store').value, k=key(s,i), at=el('now').value;
+ const skip=e.submitter.value==='skip', fields=new FormData(form);
+ const items=namesFor(i,el('tenant').selectedIndex).map((name,j)=>[name,Number(fields.get('q'+j))]).filter(([,q])=>q>0);
+ if(server){
+  try{await api('/orders',{i,skip,quantities:Object.fromEntries(items)});await refresh();el('notice').textContent='처리 내역을 저장했습니다.';}catch(error){el('notice').textContent=error.message;}
+  return;
+ }
+ const commit=()=>{
+ const data=read();
+ if(data[k])return '이미 처리된 일정입니다.';
+ if(!at)return '시뮬레이션 시각을 입력하세요.';
+ if(!skip&&!items.length)return '수량을 입력하거나 발주 없음 확인을 선택하세요.';
+ data[k]={at,status:skip?'주문 없음 확인':'주문 제출',items:skip?[]:items};
+ localStorage.setItem(storage,JSON.stringify(data));
+ render();
+ return '처리 내역을 저장했습니다.';
+ };
+ try{el('notice').textContent=navigator.locks?await navigator.locks.request(storage,commit):commit();}catch{el('notice').textContent='브라우저 저장소를 사용할 수 없습니다.';}
+}
+function showOrderItems(form){
+ const toggle=form.querySelector('[data-toggle-items]');
+ const expanded=toggle.getAttribute('aria-expanded')==='true';
+ let selected=0;
+ for(const row of form.querySelectorAll('[data-order-items] label')){
+  const included=Number(row.querySelector('input').value)>0;
+  if(included)selected++;
+  row.hidden=!expanded&&!included;
+ }
+ form.querySelector('[data-empty]').hidden=expanded||selected>0;
+ toggle.textContent=expanded?'발주 품목만 보기':'전체 품목 열기';
+}
+el('panel').addEventListener('change',event=>{
+ if(event.target.closest('[data-order-items]'))showOrderItems(event.target.form);
+});
+el('panel').addEventListener('click',async event=>{
+ const toggle=event.target.closest('[data-toggle-items]');
+ if(toggle){
+  toggle.setAttribute('aria-expanded',String(toggle.getAttribute('aria-expanded')!=='true'));
+  showOrderItems(toggle.form);
+  return;
+ }
+ const button=event.target.closest('[data-draft]');
+ if(!button)return;
+ const form=button.closest('form'), details=button.closest('details'), result=details.querySelector('pre');
+ const sales=details.querySelector('textarea').value.trim().split(/\r?\n/).filter(line=>line.trim()).map(line=>{
+  const [name,size,variant,count]=line.split('\t').map(v=>v.trim());
+  return [name,size?.toUpperCase(),variant?.toUpperCase(),Number(count)];
+ });
+ button.disabled=true;
+ try{
+  const data=await api('/draft',{i:Number(form.dataset.plan),sales});
+  const names=namesFor(Number(form.dataset.plan),session.index);
+  for(const field of form.querySelectorAll("[data-suggested]")){if(field.value===field.dataset.suggested)field.value=0;delete field.dataset.suggested;}
+  const reports=[];
+  for(const {label,used,pack,count} of data.suggestions){
+   const field=form.elements.namedItem('q'+names.indexOf(label));
+   if(field&&count!==null&&count<=9999){field.value=count;field.dataset.suggested=String(count);}
+   if(!field||count===null||count>9999)reports.push(label+' · 사용 '+Number(used.toFixed(2))+' / 주문 단위 '+(pack??'미확인')+' → '+(field&&count!==null&&count<=9999?count:'수량 확인 필요'));
+  }
+  for(const row of data.unmatched)reports.push('미매칭 · '+row.join(' / '));
+  form.querySelector('[data-toggle-items]').setAttribute('aria-expanded','false');
+  showOrderItems(form);
+  if(!reports.length)details.open=false;
+  result.textContent=reports.join('\n')||'초안 계산을 완료했습니다.';
+ }catch(error){result.textContent=error.message;}
+ finally{button.disabled=false;}
+});
+el('panel').addEventListener('submit',async event=>{
+ if(event.target.id!=='catalogForm')return submit(event);
+ event.preventDefault();
+ try{await api('/catalog',Object.fromEntries(new FormData(event.target)));await refresh();el('notice').textContent='품목을 등록했습니다.';}catch(error){el('notice').textContent=error.message;}
+});
+for(const id of ['tenant','role','store','now'])el(id).addEventListener('change',()=>{el('notice').textContent='';render();});
+async function api(url,payload){
+ const response=await fetch(url,payload===undefined?{}:{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)});
+ const data=await response.json();
+ if(!response.ok)throw Error(data.error);
+ return data;
+}
+async function refresh(){
+ try{session=await api('/state');}catch(error){
+  el('workspace').hidden=true;el('login').hidden=false;el('notice').textContent=error.message;return;
+ }
+ el('login').hidden=true;el('workspace').hidden=false;
+ el('tenant').value=session.tenant;el('role').value=session.role;el('store').value=session.shop||shops[0];
+ for(const id of ['tenant','role','store'])el(id).parentElement.style.display='none';
+ const identity=el('identity');
+ identity.hidden=false;
+ identity.textContent=[session.tenant,session.role,session.shop].filter(Boolean).join(' · ')+' ';
+ const logout=document.createElement('button');
+ logout.textContent='로그아웃';
+ logout.onclick=async()=>{try{await api('/logout',{});await refresh();}catch(error){el('notice').textContent=error.message;}};
+ identity.append(logout);
+ render();
+}
+if(server){
+ el('workspace').hidden=true;
+ el('loginForm').onsubmit=async event=>{
+  event.preventDefault();
+  try{await api('/login',Object.fromEntries(new FormData(event.target)));event.target.reset();el('notice').textContent='';await refresh();}catch(error){el('notice').textContent=error.message;}
+ };
+ refresh();
+}else{
+ window.addEventListener('storage',render);
+ render();
+}
+</script></html>
+

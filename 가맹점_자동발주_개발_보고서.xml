@@ -1,0 +1,40 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<report xml:lang="ko">
+  <title>가맹점 자동발주 프로그램 개발 보고서</title>
+  <section number="1">
+    <title>프로젝트 목적</title>
+    <paragraph><emphasis>점주가 매장에 상주하지 않아도 교대 직원이 같은 기준으로 발주할 수 있도록 돕는 프로그램</emphasis>을 개발한다.</paragraph>
+    <paragraph>직원이 교대로 운영하는 매장에서는 판매 내역을 보고 다음에 주문할 재료와 포장재를 직접 판단해야 한다. 이 과정에서 필요한 품목을 빠뜨리거나 낱개와 박스 단위를 혼동할 수 있다. 프로그램이 <emphasis>실제 판매 내역으로 발주서를 미리 채워두면</emphasis>, 직원은 품목과 수량을 확인하고 필요한 부분만 수정해 본사에 제출할 수 있다.</paragraph>
+    <paragraph>첫 적용 매장은 <emphasis>커피랩 케니야 본점</emphasis>이다. 본점에서 사용해 본 뒤 다른 카페·베이커리 프랜차이즈의 가맹점에도 제공하는 것이 목표다.</paragraph>
+  </section>
+  <section number="2">
+    <title>프로그램 작동 방식</title>
+    <paragraph>프로그램은 어떤 메뉴가 몇 개 팔렸는지 확인하고, 등록된 레시피를 바탕으로 재료와 포장재 사용량을 계산한다. 같은 품목의 사용량을 합산한 뒤 봉·팩·박스 같은 본사 주문 단위에 맞춰 발주 초안을 작성한다.</paragraph>
+    <paragraph>예를 들어 <emphasis>ICE 아메리카노 Q가 8잔</emphasis> 팔렸다면, 한 잔에 원두 30g이 들어가므로 판매 기준 원두 사용량은 <emphasis>240g</emphasis>이다. 직원은 이렇게 계산된 발주 초안에서 매장에 남은 물량을 확인하고, 필요하면 주문 수량을 조정한다.</paragraph>
+    <paragraph>판매 자료에 HOT·ICE 구분이 빠져 있다면, 두 경우에 사용량이 같은 원두는 계산에 반영하고 컵과 뚜껑은 <emphasis>확인 필요</emphasis>로 표시한다. 최종 발주는 직원이 제출할 때 확정되며, 본사는 접수된 주문을 매장별로 조회하고 품목별 수량을 취합한다.</paragraph>
+  </section>
+  <section number="3">
+    <title>지금까지 만든 것</title>
+    <table>
+      <header><cell>구분</cell><cell>구현 및 검증 내용</cell></header>
+      <row><cell>본사 품목</cell><cell>케니야 본사 품목 <emphasis>111개</emphasis> 등록. 바리스타즈 우유 <emphasis>1L 16개를 1박스</emphasis>로 반영.</cell></row>
+      <row><cell>메뉴 레시피</cell><cell>메뉴·사이즈·HOT/ICE 조합 <emphasis>102개</emphasis>에 재료와 포장재 사용량 <emphasis>631건</emphasis> 연결.</cell></row>
+      <row><cell>실제 판매 자료 적용</cell><cell>케니야 본점의 <emphasis>11월 4일 판매 자료</emphasis>로 <emphasis>23개 품목의 발주 초안</emphasis>을 저장하고 본점 계정에서 조회 확인.</cell></row>
+      <row><cell>가맹점과 본사 화면</cell><cell>가맹점은 발주 수량이 있는 품목을 먼저 보고 수량을 수정·제출할 수 있음. 본사는 매장별 주문과 품목별 합계 조회 가능.</cell></row>
+      <row><cell>프로그램 실행과 저장</cell><cell>Windows PC에서 실행해 브라우저로 사용하는 시제품 마련. 품목·레시피·초안·주문 이력은 데이터베이스에 저장.</cell></row>
+    </table>
+    <paragraph>현재는 <emphasis>하루치 실제 판매 자료를 사용해 발주서가 미리 채워지는 흐름</emphasis>을 시험한 단계다.</paragraph>
+  </section>
+  <section number="4">
+    <title>앞으로 개발할 것</title>
+    <list ordered="true">
+      <item><title>발주 회차 관리</title><paragraph>본점에 고정된 발주·수령 일정이 없으므로, 본사가 필요할 때 새 회차를 열고 마감 시간을 정할 수 있게 한다.</paragraph></item>
+      <item><title>하루 한 번 자동 갱신</title><paragraph>매일 같은 시각에 새 판매분을 반영하고, 화면에 어느 시점까지 반영됐는지 표시한다. 정확한 갱신 시각은 매장 운영에 맞춰 정한다. 토스플레이스 연동은 기본 발주 흐름을 검증한 뒤 진행한다.</paragraph></item>
+      <item><title>회사별 레시피 보호</title><paragraph>다른 프랜차이즈에 제공할 때 회사별 데이터 접근을 분리한다. 레시피 계산은 서버에서 처리하고, 배합과 사용량 원본은 해당 회사의 권한 있는 관리자만 조회하도록 한다. 가맹점 직원에게는 발주에 필요한 품목과 주문 단위, 수량을 보여준다.</paragraph></item>
+    </list>
+  </section>
+  <section number="5">
+    <title>본점 검증 목표</title>
+    <paragraph>점주가 자리에 없어도 교대 직원이 <emphasis>이미 채워진 발주서를 열고, 확인이 필요한 항목을 살펴본 뒤, 주문을 제출할 수 있는지</emphasis> 확인한다. 기존 방식과 비교해 <emphasis>발주에 걸린 시간, 누락된 품목 수, 주문 단위 착오 건수</emphasis>를 기록한다.</paragraph>
+  </section>
+</report>
